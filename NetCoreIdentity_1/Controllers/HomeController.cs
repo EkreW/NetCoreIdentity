@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using NetCoreIdentity_1.Models;
 using NetCoreIdentity_1.Models.Entities;
 using NetCoreIdentity_1.Models.ViewModels.AppUsers.PureVms;
 using System.Diagnostics;
+using SignInResult = Microsoft.AspNetCore.Identity.SignInResult;
 
 namespace NetCoreIdentity_1.Controllers
 {
@@ -61,11 +63,18 @@ namespace NetCoreIdentity_1.Controllers
                 if (result.Succeeded)
                 {
                     #region AdminEklemekIcinKodlar
-                    AppRole role = await _roleManager.FindByNameAsync("Admin"); //Admin ismindeki rolu bulabilirse Role nesnesini appRole'e atacaktýr eðer bulamazsa appRole null olacaktýr.
-                    if (role == null) await _roleManager.CreateAsync(new() { Name = "Admin" }); //Admin isminde bir rol yaratýldý.
-                    await _userManager.AddToRoleAsync(appUser, "Admin"); //appUser degiskeninin tuttugu kullanýcý nesnesini Admin isimli Role'e ekledik.
+                    //AppRole role = await _roleManager.FindByNameAsync("Admin"); //Admin ismindeki rolu bulabilirse Role nesnesini appRole'e atacaktýr eðer bulamazsa appRole null olacaktýr.
+                    //if (role == null) await _roleManager.CreateAsync(new() { Name = "Admin" }); //Admin isminde bir rol yaratýldý.
+                    //await _userManager.AddToRoleAsync(appUser, "Admin"); //appUser degiskeninin tuttugu kullanýcý nesnesini Admin isimli Role'e ekledik.
                     #endregion
-                    return RedirectToAction("Index");
+                    #region MemberEklemekIcinKodlar
+                    AppRole role = await _roleManager.FindByNameAsync("Member");
+
+                    if (role == null) await _roleManager.CreateAsync(new() { Name = "Member" });
+                    await _userManager.AddToRoleAsync(appUser, "Member");
+                    #endregion
+
+                    return RedirectToAction("Register");
                 }
                 foreach (IdentityError error in result.Errors)
                 {
@@ -73,6 +82,91 @@ namespace NetCoreIdentity_1.Controllers
                 }
             }
             return View(model);
+        }
+
+        public IActionResult SignIn(string returnUrl)
+        {
+            UserSignInRequestModel usModel = new()
+            {
+                ReturnUrl = returnUrl
+            };
+            return View(usModel);
+        }
+        [HttpPost]
+        public async Task<IActionResult> SignIn(UserSignInRequestModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                AppUser appUser = await _userManager.FindByNameAsync(model.UserName); //await ile bir Task'in direkt sonucunu beklediginiz icin onu elde edersiniz...
+
+                SignInResult result = await _signInManager.PasswordSignInAsync(appUser, model.Password, model.RememberMe, true);
+
+                if (result.Succeeded)
+                {
+                    if (!string.IsNullOrWhiteSpace(model.ReturnUrl))
+                    {
+                        return Redirect(model.ReturnUrl);
+                    }
+
+                    IList<string> roles = await _userManager.GetRolesAsync(appUser);
+
+                    if (roles.Contains("Admin"))
+                    {
+                        return RedirectToAction("AdminPanel"); //Eger gitmek istediginiz sayfa bir baska Area'da ise routeData parametresine Anonymus type olarak argüman vererek gönderirsiniz return RedirectToAction("AdminPanel", new(Area = "Admin"))
+                    }
+                    else if (roles.Contains("Member"))
+                    {
+                        return RedirectToAction("MemberPanel");
+                    }
+                    return RedirectToAction("Panel");
+                }
+                else if (result.IsLockedOut)
+                {
+                    DateTimeOffset? LockOutEndData = await _userManager.GetLockoutEndDateAsync(appUser);
+                    ModelState.AddModelError("", $"Hesabýnýz {(LockOutEndData.Value.UtcDateTime - DateTime.UtcNow).Minutes} dakika süreyle askýya alýnmýþtýr.");
+                }
+                else
+                {
+                    string message = "";
+                    if (appUser != null)
+                    {
+                        int maxFailedAttempts = _userManager.Options.Lockout.MaxFailedAccessAttempts; //middleware'deki maksimum hata sayýnýz..
+                        message = $"Eðer {maxFailedAttempts - await _userManager.GetAccessFailedCountAsync(appUser)} kez daha yanlýþ giriþ yaparsanýz hesabýnýz gecici olarak askýya alýnacaktýr!";
+                    }
+                    else message = "Kullanýcý bulunamadý";
+
+                    ModelState.AddModelError("", message);
+                }
+            }
+            return View(model);
+        }
+
+        public IActionResult AccessDenied()
+        {
+            return View();
+        }
+
+        public async Task<IActionResult> SignOut()
+        {
+            await _signInManager.SignOutAsync();
+            return RedirectToAction("Index");
+        }
+
+        [Authorize(Roles = "Admin")]
+        public IActionResult AdminPanel()
+        {
+            return View();
+        }
+
+        [Authorize(Roles = "Member")]
+        public IActionResult MemberPanel()
+        {
+            return View();
+        }
+
+        public IActionResult Panel()
+        {
+            return View();
         }
     }
 }
