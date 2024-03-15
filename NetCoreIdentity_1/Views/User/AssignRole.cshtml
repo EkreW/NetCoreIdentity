@@ -1,0 +1,20 @@
+﻿@model AssignRolePageVM
+
+<form asp-controller="User" asp-action="AssignRole" method="post" class="p-3 w-75 m-auto">
+    <input type="hidden" asp-for="UserID" />
+
+    <div class="list-group">
+        @for (int i = 0; i < Model.Roles.Count; i++)
+        {
+            <input type="hidden" asp-for="Roles[i].RoleID" />
+            <input type="hidden" asp-for="Roles[i].RoleName" />
+            <label class="list-group-item">
+                <input class="form-check-input me-1" asp-for="Roles[i].Checked" /> @Model.Roles[i].RoleName
+            </label>
+        }
+    </div>
+
+    <div class="mb-4">
+        <button class="btn btn-primary">Kaydet</button>
+    </div>
+</form>

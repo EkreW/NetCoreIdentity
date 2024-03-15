@@ -15,6 +15,7 @@ builder.Services.AddIdentity<AppUser, AppRole>(x =>
     x.Password.RequireUppercase = false;
     x.Password.RequireNonAlphanumeric = false;
     x.Lockout.MaxFailedAccessAttempts = 5;
+    x.User.RequireUniqueEmail = true;
     //x.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
 }).AddEntityFrameworkStores<MyContext>();
 
@@ -23,7 +24,7 @@ builder.Services.ConfigureApplicationCookie(x =>
     x.Cookie.HttpOnly = true;
     x.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
     x.Cookie.Name = "CyberSelf";
-    x.ExpireTimeSpan = TimeSpan.FromMinutes(5);
+    x.ExpireTimeSpan = TimeSpan.FromMinutes(15);
     x.Cookie.SameSite = SameSiteMode.Strict;
     x.LoginPath = new PathString("/Home/SignIn");
     x.AccessDeniedPath = new PathString("/Home/AccessDenied");
@@ -43,7 +44,7 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
-app.UseAuthentication();
+app.UseAuthentication(); //Burada sakýn Authentication'i unutmayýn...Cünkü Authorization'dan(Yetkiden önce) kimlik tanýnmasý gerekir (Authentication)
 
 app.UseAuthorization();
 
